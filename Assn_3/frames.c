@@ -17,6 +17,9 @@ int num_mem_access=0;
 int misses=0;
 int writes=0;
 int drops=0;
+int *record;
+char *record_rw;
+
 
 void print_page_table()
 {
@@ -28,15 +31,134 @@ void print_page_table()
 
 void print_summary()
 {
-    printf("Number of memory accesses:%d\n",num_mem_access);
-    printf("Number of misses:%d\n",misses);
-    printf("Number of writes:%d\n",writes);
-    printf("Number of drops:%d\n",drops);
+    printf("Number of memory accesses: %d\n",num_mem_access);
+    printf("Number of misses: %d\n",misses);
+    printf("Number of writes: %d\n",writes);
+    printf("Number of drops: %d\n",drops);
 }
 
 void opt_str()
 {
+    FILE* fptr = fopen(inputfile, "r");
+    if (fptr == NULL) {
+        printf("File Error 404");
+        return;
+    }
 
+    const int MAX=10000005;
+    record=(int*)malloc(MAX*sizeof(int));
+    record_rw=(char*)malloc(MAX*sizeof(char));
+    int ctr=0;
+    int assigned=0;
+    int *oracle=malloc(frames*sizeof(int));
+    
+
+    while(fscanf(fptr, "%x %c", &v_address, &read_write)>0)
+    {
+        int vpn=(v_address & vpn_mask)>>12;
+        record[ctr]=vpn;
+        record_rw[ctr]=read_write;
+        ctr++;
+    }
+
+    for(int i=0;i<ctr;i++)
+    {
+        // sanity
+        // printf("%x %c\n",v_address,read_write);
+
+        int present=0;
+        num_mem_access++;
+        for(int j=0;j<frames;j++)
+        {
+            if(valid[j]!=0)
+            {
+                if(page_table[j]==record[i])
+                {
+                    //hit
+                    present=1;
+                    if(record_rw[i]=='W')
+                    dirty[j]=1;
+                    break;
+                }
+            }
+        }
+
+        //miss->page replacement
+        if(!present && assigned<frames)
+        {
+            misses++;
+            page_table[assigned]=record[i];
+            valid[assigned]=1;
+            assigned++;
+        }
+        else if(!present)
+        {
+            misses++;
+
+            int replaced_index=0;
+            int next_max=0;
+
+            for(int ind=0;ind<frames;ind++)
+            {
+                int vpnsearch=page_table[ind];
+                oracle[ind]=MAX+3;
+                for(int p=i+1;p<ctr;p++)
+                {
+                    if(record[p]==vpnsearch)
+                    {
+                        oracle[ind]=p;
+                        break;
+                    }
+                }
+            }
+            next_max=oracle[0];
+            for(int ind=0;ind<frames;ind++)
+            {
+                if(oracle[ind]>next_max)
+                {
+                    next_max=oracle[ind];
+                    replaced_index=ind;
+                }
+            }
+
+            int replaced=page_table[replaced_index];
+
+
+            if(verb)
+            {
+                printf("Page 0x%x was read from disk, ",record[i]);
+            }
+            if(dirty[replaced_index]==0)
+            {
+                drops++;
+                if(verb)
+                {
+                    printf("page 0x%x was dropped (it was not dirty).\n",replaced);
+                }
+            }
+            else
+            {
+                writes++;
+                if(verb)
+                {
+                    printf("page 0x%x was written to the disk.\n",replaced);
+                }
+            }
+            page_table[replaced_index]=record[i];
+            valid[replaced_index]=1;
+            dirty[replaced_index]=0;
+            if(record_rw[i]=='W')
+            dirty[replaced_index]=1;
+        }
+
+        // sanity
+        // printf("page table is \n");
+        // print_page_table();
+        // printf("\n");
+
+    }
+    
+    print_summary();
 }
 void fifo_str()
 {
@@ -82,14 +204,14 @@ void fifo_str()
 
             if(verb && valid[fifo_start_index])
             {
-                printf("Page %x was read from disk, ",vpn);
+                printf("Page 0x%x was read from disk, ",vpn);
             }
             if(dirty[fifo_start_index]==0 && valid[fifo_start_index])
             {
                 drops++;
                 if(verb)
                 {
-                    printf("page %x was dropped (it was not dirty).\n",replaced);
+                    printf("page 0x%x was dropped (it was not dirty).\n",replaced);
                 }
             }
             else if(valid[fifo_start_index])
@@ -97,7 +219,7 @@ void fifo_str()
                 writes++;
                 if(verb)
                 {
-                    printf("page %x was written to the disk.\n",replaced);
+                    printf("page 0x%x was written to the disk.\n",replaced);
                 }
             }
 
@@ -196,14 +318,14 @@ void clock_str()
 
             if(verb)
             {
-                printf("Page %x was read from disk, ",vpn);
+                printf("Page 0x%x was read from disk, ",vpn);
             }
             if(dirty[replaced_index]==0)
             {
                 drops++;
                 if(verb)
                 {
-                    printf("page %x was dropped (it was not dirty).\n",replaced);
+                    printf("page 0x%x was dropped (it was not dirty).\n",replaced);
                 }
             }
             else
@@ -211,7 +333,7 @@ void clock_str()
                 writes++;
                 if(verb)
                 {
-                    printf("page %x was written to the disk.\n",replaced);
+                    printf("page 0x%x was written to the disk.\n",replaced);
                 }
             }
             page_table[replaced_index]=vpn;
@@ -299,14 +421,14 @@ void lru_str()
 
             if(verb)
             {
-                printf("Page %x was read from disk, ",vpn);
+                printf("Page 0x%x was read from disk, ",vpn);
             }
             if(dirty[replaced_index]==0)
             {
                 drops++;
                 if(verb)
                 {
-                    printf("page %x was dropped (it was not dirty).\n",replaced);
+                    printf("page 0x%x was dropped (it was not dirty).\n",replaced);
                 }
             }
             else
@@ -314,7 +436,7 @@ void lru_str()
                 writes++;
                 if(verb)
                 {
-                    printf("page %x was written to the disk.\n",replaced);
+                    printf("page 0x%x was written to the disk.\n",replaced);
                 }
             }
             page_table[replaced_index]=vpn;
@@ -386,14 +508,14 @@ void random_str()
 
             if(verb)
             {
-                printf("Page %x was read from disk, ",vpn);
+                printf("Page 0x%x was read from disk, ",vpn);
             }
             if(dirty[replaced_index]==0)
             {
                 drops++;
                 if(verb)
                 {
-                    printf("page %x was dropped (it was not dirty).\n",replaced);
+                    printf("page 0x%x was dropped (it was not dirty).\n",replaced);
                 }
             }
             else
@@ -401,7 +523,7 @@ void random_str()
                 writes++;
                 if(verb)
                 {
-                    printf("page %x was written to the disk.\n",replaced);
+                    printf("page 0x%x was written to the disk.\n",replaced);
                 }
             }
             page_table[replaced_index]=vpn;

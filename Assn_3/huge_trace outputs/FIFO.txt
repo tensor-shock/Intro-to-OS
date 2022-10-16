@@ -1,0 +1,4 @@
+Number of memory accesses: 7288602
+Number of misses: 288318
+Number of writes: 211911
+Number of drops: 76397
