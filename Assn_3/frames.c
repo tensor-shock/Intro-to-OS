@@ -51,7 +51,11 @@ void opt_str()
     int ctr=0;
     int assigned=0;
     int *oracle=malloc(frames*sizeof(int));
-    
+
+    for(int i=0;i<frames;i++)
+    {
+        oracle[i]=MAX+3;
+    }
 
     while(fscanf(fptr, "%x %c", &v_address, &read_write)>0)
     {
@@ -89,6 +93,18 @@ void opt_str()
             misses++;
             page_table[assigned]=record[i];
             valid[assigned]=1;
+            if(record_rw[assigned]=='W')
+            dirty[assigned]=1;
+
+            int vpnsearch=page_table[assigned];
+            for(int p=i+1;p<ctr;p++)
+            {
+                if(record[p]==vpnsearch)
+                {
+                    oracle[assigned]=p;
+                    break;
+                }
+            }
             assigned++;
         }
         else if(!present)
@@ -100,6 +116,8 @@ void opt_str()
 
             for(int ind=0;ind<frames;ind++)
             {
+                if(oracle[ind]>i)
+                continue;
                 int vpnsearch=page_table[ind];
                 oracle[ind]=MAX+3;
                 for(int p=i+1;p<ctr;p++)
@@ -145,6 +163,16 @@ void opt_str()
                 }
             }
             page_table[replaced_index]=record[i];
+            int vpnsearch=page_table[replaced_index];
+            oracle[replaced_index]=MAX+3;
+            for(int p=i+1;p<ctr;p++)
+            {
+                if(record[p]==vpnsearch)
+                {
+                    oracle[replaced_index]=p;
+                    break;
+                }
+            }
             valid[replaced_index]=1;
             dirty[replaced_index]=0;
             if(record_rw[i]=='W')
@@ -155,6 +183,7 @@ void opt_str()
         // printf("page table is \n");
         // print_page_table();
         // printf("\n");
+
 
     }
     
@@ -289,6 +318,8 @@ void clock_str()
             page_table[assigned]=vpn;
             valid[assigned]=1;
             reference[assigned]=1;
+            if(read_write=='W')
+            dirty[assigned]=1;
             assigned++;
         }
         else if(!present)
@@ -400,6 +431,8 @@ void lru_str()
             page_table[assigned]=vpn;
             valid[assigned]=1;
             recent_array[assigned]=counts;
+            if(read_write=='W')
+            dirty[assigned]=1;
             assigned++;
             counts++;
         }
@@ -496,6 +529,8 @@ void random_str()
             misses++;
             page_table[assigned]=vpn;
             valid[assigned]=1;
+            if(read_write=='W')
+            dirty[assigned]=1;
             assigned++;
         }
         else if(!present)
